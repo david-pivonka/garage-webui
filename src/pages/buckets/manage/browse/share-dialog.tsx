@@ -17,23 +17,23 @@ const ShareDialog = () => {
   const { data: config } = useConfig();
   const [domain, setDomain] = useState(bucketName);
 
-  const websitePort = config?.s3_web?.bind_addr?.split(":").pop() || "80";
   const rootDomain = config?.s3_web?.root_domain;
 
+  // If s3_web root_domain is configured, use it as the only option (HTTPS)
+  // Otherwise fall back to the bare bucket name
+  const webDomain = rootDomain ? bucketName + rootDomain : null;
+
   const domains = useMemo(
-    () => [
-      bucketName,
-      bucketName + rootDomain,
-      bucketName + rootDomain + `:${websitePort}`,
-    ],
-    [bucketName, config?.s3_web]
+    () => (webDomain ? [webDomain] : [bucketName]),
+    [bucketName, webDomain]
   );
 
   useEffect(() => {
-    setDomain(bucketName);
+    setDomain(domains[0]);
   }, [domains]);
 
-  const url = "http://" + domain + "/" + data?.prefix + data?.key;
+  const protocol = rootDomain ? "https://" : "http://";
+  const url = protocol + domain + "/" + data?.prefix + data?.key;
 
   return (
     <Modal ref={dialogRef} open={isOpen} backdrop>
