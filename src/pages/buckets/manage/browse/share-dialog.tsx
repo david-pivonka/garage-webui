@@ -2,12 +2,10 @@ import { createDisclosure } from "@/lib/disclosure";
 import { Alert, Modal } from "react-daisyui";
 import { useBucketContext } from "../context";
 import { useConfig } from "@/hooks/useConfig";
-import { useEffect, useMemo, useState } from "react";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
 import { Copy, FileWarningIcon } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils";
-import Checkbox from "@/components/ui/checkbox";
 
 export const shareDialog = createDisclosure<{ key: string; prefix: string }>();
 
@@ -15,25 +13,25 @@ const ShareDialog = () => {
   const { isOpen, data, dialogRef } = shareDialog.use();
   const { bucket, bucketName } = useBucketContext();
   const { data: config } = useConfig();
-  const [domain, setDomain] = useState(bucketName);
 
+  // Build share URL:
+  //   1. If SHARE_BASE_URL env is set (via config API): path-based URL
+  //      e.g. https://files.rennieops.com/<bucket>/<key>
+  //   2. If s3_web.root_domain is set: subdomain-based URL
+  //      e.g. https://<bucket>.files.rennieops.com/<key>
+  //   3. Fallback: bare bucket name (internal)
+  const shareBaseUrl = config?.share_base_url;
   const rootDomain = config?.s3_web?.root_domain;
 
-  // If s3_web root_domain is configured, use it as the only option (HTTPS)
-  // Otherwise fall back to the bare bucket name
-  const webDomain = rootDomain ? bucketName + rootDomain : null;
-
-  const domains = useMemo(
-    () => (webDomain ? [webDomain] : [bucketName]),
-    [bucketName, webDomain]
-  );
-
-  useEffect(() => {
-    setDomain(domains[0]);
-  }, [domains]);
-
-  const protocol = rootDomain ? "https://" : "http://";
-  const url = protocol + domain + "/" + data?.prefix + data?.key;
+  let url = "";
+  if (shareBaseUrl) {
+    const base = shareBaseUrl.replace(/\/+$/, "");
+    url = base + "/" + bucketName + "/" + (data?.prefix || "") + (data?.key || "");
+  } else if (rootDomain) {
+    url = "https://" + bucketName + rootDomain + "/" + (data?.prefix || "") + (data?.key || "");
+  } else {
+    url = "http://" + bucketName + "/" + (data?.prefix || "") + (data?.key || "");
+  }
 
   return (
     <Modal ref={dialogRef} open={isOpen} backdrop>
@@ -45,16 +43,6 @@ const ShareDialog = () => {
             Sharing is only available for buckets with enabled website access.
           </Alert>
         )}
-        <div className="flex flex-row overflow-x-auto pb-2">
-          {domains.map((item) => (
-            <Checkbox
-              key={item}
-              label={item}
-              checked={item === domain}
-              onChange={() => setDomain(item)}
-            />
-          ))}
-        </div>
         <div className="relative mt-2">
           <Input
             value={url}

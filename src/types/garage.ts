@@ -11,6 +11,7 @@ export type Config = {
   s3_api?: S3API;
   s3_web?: S3Web;
   admin?: Admin;
+  share_base_url?: string;
 };
 
 export type Admin = {
